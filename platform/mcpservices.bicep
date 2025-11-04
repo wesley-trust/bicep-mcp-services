@@ -82,7 +82,7 @@ module hostingPlan 'br/public:avm/res/web/serverfarm:0.5.0' = if (deployService 
     skuName: 'FC1'
     kind: 'functionapp'
     reserved: true
-    zoneRedundant: true
+    zoneRedundant: false
   }
 }
 
