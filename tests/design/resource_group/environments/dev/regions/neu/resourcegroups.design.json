@@ -3,14 +3,14 @@
   "tags": {
     "environment": "dev",
     "owner": "platform-team",
-    "service": "service"
+    "service": "mcp"
   },
   "health": {
     "provisioningState": "Succeeded"
   },
   "resources": [
     {
-      "name": "rg-service-dev-neu-#{{ deploymentVersion }}",
+      "name": "rg-mcp-dev-neu-#{{ deploymentVersion }}",
       "location": "northeurope"
     }
   ]

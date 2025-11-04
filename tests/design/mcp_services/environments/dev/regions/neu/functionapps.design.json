@@ -1,5 +1,5 @@
 {
-  "resourceType": "Microsoft.Resources/resourceGroups",
+  "resourceType": "Microsoft.Web/sites",
   "tags": {
     "environment": "dev",
     "owner": "platform-team",
@@ -10,8 +10,9 @@
   },
   "resources": [
     {
-      "name": "rg-mcp-dev-weu-#{{ deploymentVersion }}",
-      "location": "westeurope"
+      "name": "func-mcp-dev-neu-001",
+      "location": "northeurope",
+      "kind": "functionapp,linux"
     }
   ]
 }

@@ -1,6 +1,6 @@
 # Common/shared variables
 variables:
-  service: service
+  service: mcp
   serviceConnection: sc-azure-vse-shared-sub-wif-001
   gitHubServiceConnection: wesley-trust
 
@@ -13,12 +13,27 @@ variables:
   resourceGroup: rg-$(service)-$(environment)-$(regionCode)-$(deploymentVersion)
 
   # Service configuration
-  deployService: true # Setting to false will prevent creation of all dependent resources, overriding individual variables, any resources deployed will be detached or deleted as per the allowDeleteOnUnmanage pipeline parameter
+  deployService: true # Setting to false skips the Function App deployment entirely, any resources deployed will be detached or deleted as per the allowDeleteOnUnmanage pipeline parameter
 
-  ## Resource configuration
-  deployResource: true # Setting to false will prevent creation, any resources deployed will be detached or deleted as per the allowDeleteOnUnmanage pipeline parameter
-  resourceAbbreviationInstanceVersion: 001
-  resourceAbbreviation-001-name: resource-$(service)-$(environment)-$(regionCode)-$(resourceAbbreviationInstanceVersion)
+  ## Function App configuration
+  deployFunctionApp: true # Setting to false will prevent creation of the Function App and dependencies, any resources deployed will be detached or deleted as per the allowDeleteOnUnmanage pipeline parameter
+  mcpInstanceVersion: 001
+  mcpPlanInstanceVersion: 001
+  mcpStorageAccountInstanceVersion: 001
+
+  mcpName: func-$(service)-$(environment)-$(regionCode)-$(mcpInstanceVersion)
+  mcpPlanName: plan-$(service)-$(environment)-$(regionCode)-$(mcpPlanInstanceVersion)
+  mcpStorageAccountName: st$(service)$(environment)$(regionCode)$(mcpStorageAccountInstanceVersion)
+  mcpDeploymentContainerName: apppkg-$(service)-$(environment)-$(regionCode)
+
+  mcpMaximumInstanceCount: 100
+  mcpInstanceMemoryMB: 2048
+  mcpRuntime: powerShell
+  mcpRuntimeVersion: "7.4"
+  mcpAlwaysReadyDurableCount: 0
+  mcpPlanZoneRedundant: "false"
+  mcpUserPrincipalId: ""
+  mcpAllowUserPrincipal: "false"
 
   ## Virtual Network configuration
   vNetInstanceVersion: 001
@@ -32,6 +47,6 @@ variables:
   ### Subnet configuration
   subnetInstanceVersion: 001
 
-  ### Subnet: snet-001
-  snet-001-resource: "resourceAbbreviation"
-  snet-001-name: snet-$(networkService)-$(environment)-$(regionCode)-vnet-$(vNetInstanceVersion)-$(snet-001-resource)-$(subnetInstanceVersion)
+  ### Subnet: snet-002
+  snet-002-resource: "mcp"
+  snet-002-name: snet-$(networkService)-$(environment)-$(regionCode)-vnet-$(vNetInstanceVersion)-$(snet-002-resource)-$(subnetInstanceVersion)

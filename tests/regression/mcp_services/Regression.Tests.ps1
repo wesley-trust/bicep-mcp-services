@@ -1,14 +1,10 @@
 [CmdletBinding()]
 Param(
-  [string]$DesignRoot = "./tests/design/service",
+  [string]$DesignRoot = "./tests/design/mcp_services",
   [string]$Location = $ENV:REGION,
   [string]$RegionCode = $ENV:REGIONCODE,
   [string]$Environment = $ENV:ENVIRONMENT,
   [ValidateSet("Full", "Environment", "Region")][string]$DesignPathSwitch = "Region",
-  [string]$ResourceGroupTemplateFile = "./platform/resourcegroup.bicep",
-  [string]$ResourceGroupParameterFile = "./platform/resourcegroup.bicepparam",
-  [string]$ResourceTemplateFile = "./platform/service.bicep",
-  [string]$ResourceParameterFile = "./platform/service.bicepparam",
   [string]$ResourceGroupName = $ENV:RESOURCEGROUP,
   [string]$Name
 )
@@ -55,65 +51,45 @@ BeforeDiscovery {
     $script:Design = Get-Content -Path $DesignPath -Raw | ConvertFrom-Json
   }
 
-  # Resource Types to exclude from testing based on environment variables
-  $ResourceTypeExclusion = @(
-    # Example of excluding based on environment variable
-    # if ($ENV:EXCLUDETYPERESOURCETYPE) {
-    #   'ResourceType'
-    # }
-  )
-
-  # Get unique Resource Types, excluding those in the exclusion list
-  $script:ResourceTypes = $Design.resourceType | 
-  Where-Object { $_ -notin $ResourceTypeExclusion } | 
-  Sort-Object -Unique
+  # Get unique Resource Types
+  $script:ResourceTypes = $Design.resourceType | Sort-Object -Unique
 
   # Resource Types that do not have tags
-  $script:ResourceTypeTagExclusion = @(
-    # Example of how to exclude a resource type that does not have tags
-    # 'ResourceType' 
-  )
+  $script:ResourceTypeTagExclusion = @()
 
   # Optional skip matrix for resource properties
-  $script:PropertySkipMatrix = @{
-    # Example of how to skip specific properties for a resource type, which can be controlled via environment variables
-    # 'ResourceType' = @{
-    #   propertyName = $ENV:EXCLUDEPROPERTYPROPERTYNAME
-    # }
-  }
+  $script:PropertySkipMatrix = @{}
 }
+
 
 BeforeAll {
 
+  # Validate Resource Group exists
   $ResourceGroupExists = Get-AzResourceGroup -Name $ResourceGroupName -ErrorAction SilentlyContinue
 
-  if (!$ResourceGroupExists) {
+  if ($ResourceGroupExists) {
 
-    Write-Information -InformationAction Continue -MessageData "Resource Group '$ResourceGroupName' does not exist. Creating."
+    # Resource Group Stack
+    if ($Name) {
+      $StackGroupName = "ds-$ResourceGroupName-$Name"
+    }
+    else {
+      $StackGroupName = "ds-$ResourceGroupName"
+    }
 
-    # Subscription Stack
-    $StackSubName = "ds-sub-$ResourceGroupName"
-
-    $StackSubParameters = @(
-      'stack', 'sub', 'create',
-      '--name', $StackSubName,
-      '--location', $Location,
-      '--template-file', $ResourceGroupTemplateFile,
-      '--parameters', $ResourceGroupParameterFile,
-      '--deny-settings-mode', 'DenyWriteAndDelete',
-      '--action-on-unmanage', 'detachAll',
+    $StackGroupParameters = @(
+      'stack', 'group', 'show',
+      '--name', $StackGroupName,
+      '--resource-group', $ResourceGroupName,
       '--only-show-errors'
     )
 
-    # Deploy Stack
-    az @StackSubParameters
+    # Show Stack
+    $Report = az @StackGroupParameters
   }
   else {
-    Write-Information -InformationAction Continue -MessageData "Resource Group '$ResourceGroupName' already exists. Skipping creation."
+    throw "Resource Group '$ResourceGroupName' does not exist, unable to continue"
   }
-  
-  # Generate Bicep Report
-  $Report = az deployment group what-if --resource-group $ResourceGroupName --template-file $ResourceTemplateFile --parameters $ResourceParameterFile --only-show-errors --no-pretty-print
 
   # Create object if report is not null or empty, and optionally publish artifact
   if ($Report) {
@@ -122,7 +98,23 @@ BeforeAll {
     }
     $ReportObject = $Report | ConvertFrom-Json
 
-    $ReportFiltered = $ReportObject.changes.after
+    if ($ReportObject.resources) {
+      $ReportFiltered = foreach ($ResourceId in $ReportObject.resources.id) {
+        $Resource = Get-AzResource -ResourceId $ResourceId -ExpandProperties
+
+        [PSCustomObject]@{
+          Name       = $Resource.Name
+          Type       = $Resource.ResourceType
+          Id         = $Resource.ResourceId
+          Location   = $Resource.Location
+          Tags       = $Resource.Tags
+          Properties = $Resource.Properties
+        }
+      }
+    }
+    else {
+      Write-Information -InformationAction Continue -MessageData "No resources found in stack '$StackGroupName'."
+    }
   }
   else {
     throw "Operation failed or returned no results."
@@ -249,26 +241,7 @@ Describe "Resource Type '<_>'" -ForEach $ResourceTypes {
         $Property = $_
         
         # Mapping of flattened design properties to their nested properties in the report
-        $PropertyMapping = @{
-          'Microsoft.Network/virtualNetworks'         = @{
-            addressPrefixes        = { param($Resource) $Resource.properties.addressSpace.addressPrefixes }
-            dnsServers             = { param($Resource) $Resource.properties.dhcpOptions.dnsServers }
-            subnetNames            = { param($Resource) $Resource.properties.subnets.name }
-            virtualNetworkPeerings = { param($Resource) $Resource.properties.virtualNetworkPeerings.name }
-          }
-          'Microsoft.Network/networkSecurityGroups'   = @{
-            securityRuleNames = { param($Resource) $Resource.properties.securityRules.name }
-          }
-          'Microsoft.Network/routeTables'             = @{
-            routeNames = { param($Resource) $Resource.properties.routes.name }
-          }
-          'Microsoft.Network/virtualNetworks/subnets' = @{
-            addressPrefix          = { param($Resource) $Resource.properties.addressPrefix }
-            delegationName         = { param($Resource) $Resource.properties.delegations.name }
-            networkSecurityGroupId = { param($Resource) $Resource.properties.networkSecurityGroup.id }
-            routeTableId           = { param($Resource) $Resource.properties.routeTable.id }
-          }
-        }
+        $PropertyMapping = @{}
 
         # Act
         # Skip when the property is disabled for this resource type
@@ -286,7 +259,7 @@ Describe "Resource Type '<_>'" -ForEach $ResourceTypes {
         else {
           $ActualValue = $ReportResource.$($Property.Name)
         }
-
+        
         # Assert
         ($ActualValue | Sort-Object) | Should -Be ($Property.Value | Sort-Object)
       }
@@ -306,32 +279,5 @@ Describe "Resource Type '<_>'" -ForEach $ResourceTypes {
         $ActualValue | Should -BeExactly $Tag.Value
       }
     }
-  }
-}
-
-AfterAll {
-  
-  If ($ENV:TESTSCLEANUPSTACKAFTERTEST) {
-    
-    Write-Information -InformationAction Continue -MessageData "Cleanup Stack after tests is enabled"
-    
-    $StackSubName = "ds-sub-$ResourceGroupName"
-  
-    Write-Information -InformationAction Continue -MessageData "Deployment Stack '$StackSubName' will be deleted"
-    Write-Information -InformationAction Continue -MessageData "Resource Group '$ResourceGroupName' will be deleted"
-
-    $StackSubParameters = @(
-      'stack', 'sub', 'delete',
-      '--name', $StackSubName,
-      '--yes',
-      '--action-on-unmanage', 'deleteAll',
-      '--only-show-errors'
-    )
-    
-    # Delete Stack
-    az @StackSubParameters
-  }
-  else {
-    Write-Information -InformationAction Continue -MessageData "Cleanup Stack after tests is disabled, the Stack will need to be cleaned up manually."
   }
 }

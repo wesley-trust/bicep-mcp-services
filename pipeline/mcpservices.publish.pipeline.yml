@@ -13,7 +13,7 @@ parameters:
     default: false
 
 extends:
-  template: service.settings.yml
+  template: mcpservices.settings.yml
   parameters:
     runReviewStage: false
     drInvocation: ${{ parameters.drInvocation }}

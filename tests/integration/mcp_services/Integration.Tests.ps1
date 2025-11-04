@@ -1,10 +1,14 @@
 [CmdletBinding()]
 Param(
-  [string]$DesignRoot = "./tests/design/service",
+  [string]$DesignRoot = "./tests/design/mcp_services",
   [string]$Location = $ENV:REGION,
   [string]$RegionCode = $ENV:REGIONCODE,
   [string]$Environment = $ENV:ENVIRONMENT,
   [ValidateSet("Full", "Environment", "Region")][string]$DesignPathSwitch = "Region",
+  [string]$ResourceGroupTemplateFile = "./platform/resourcegroup.bicep",
+  [string]$ResourceGroupParameterFile = "./platform/resourcegroup.bicepparam",
+  [string]$ResourceTemplateFile = "./platform/mcpservices.bicep",
+  [string]$ResourceParameterFile = "./platform/mcpservices.bicepparam",
   [string]$ResourceGroupName = $ENV:RESOURCEGROUP,
   [string]$Name
 )
@@ -51,26 +55,51 @@ BeforeDiscovery {
     $script:Design = Get-Content -Path $DesignPath -Raw | ConvertFrom-Json
   }
 
-  # Get unique Resource Types
-  $script:ResourceTypes = $Design.resourceType | Sort-Object -Unique
+  # Resource Types to exclude from testing based on environment variables
+  $ResourceTypeExclusion = @(
+    # Example of excluding based on environment variable
+    # if ($ENV:EXCLUDETYPERESOURCETYPE) {
+    #   'ResourceType'
+    # }
+  )
+
+  # Get unique Resource Types, excluding those in the exclusion list
+  $script:ResourceTypes = $Design.resourceType | 
+  Where-Object { $_ -notin $ResourceTypeExclusion } | 
+  Sort-Object -Unique
 
   # Resource Types that do not have tags
   $script:ResourceTypeTagExclusion = @(
     # Example of how to exclude a resource type that does not have tags
-    # 'ResourceType' 
+    # 'ResourceType'
   )
 
   # Optional skip matrix for resource properties
   $script:PropertySkipMatrix = @{
-    # Example of how to skip specific properties for a resource type, which can be controlled via environment variables
+    # Example of how to skip specific properties for a resource type, controlled via environment variables
     # 'ResourceType' = @{
-    #   propertyName = $ENV:EXCLUDEPROPERTYNAMEOFPROPERTY
+    #   propertyName = $ENV:EXCLUDEPROPERTYPROPERTYNAME
     # }
   }
 }
 
-
 BeforeAll {
+
+  $StackSubName = "ds-sub-$ResourceGroupName"
+
+  $StackSubParameters = @(
+    'stack', 'sub', 'create',
+    '--name', $StackSubName,
+    '--location', $Location,
+    '--template-file', $ResourceGroupTemplateFile,
+    '--parameters', $ResourceGroupParameterFile,
+    '--deny-settings-mode', 'DenyWriteAndDelete',
+    '--action-on-unmanage', 'detachAll',
+    '--only-show-errors'
+  )
+
+  # Deploy Stack
+  $ResourceGroupReport = az @StackSubParameters
 
   # Validate Resource Group exists
   $ResourceGroupExists = Get-AzResourceGroup -Name $ResourceGroupName -ErrorAction SilentlyContinue
@@ -85,15 +114,24 @@ BeforeAll {
       $StackGroupName = "ds-$ResourceGroupName"
     }
 
-    $StackGroupParameters = @(
-      'stack', 'group', 'show',
-      '--name', $StackGroupName,
-      '--resource-group', $ResourceGroupName,
-      '--only-show-errors'
-    )
+    if ($ResourceGroupReport) {
+      $StackGroupParameters = @(
+        'stack', 'group', 'create',
+        '--name', $StackGroupName,
+        '--resource-group', $ResourceGroupName,
+        '--template-file', $ResourceTemplateFile,
+        '--parameters', $ResourceParameterFile,
+        '--deny-settings-mode', 'DenyWriteAndDelete',
+        '--action-on-unmanage', 'detachAll',
+        '--only-show-errors'
+      )
 
-    # Show Stack
-    $Report = az @StackGroupParameters
+      # Deploy Stack
+      $Report = az @StackGroupParameters
+    }
+    else {
+      throw "Resource Group Stack deployment failed or returned no results."
+    }
   }
   else {
     throw "Resource Group '$ResourceGroupName' does not exist, unable to continue"
@@ -249,19 +287,7 @@ Describe "Resource Type '<_>'" -ForEach $ResourceTypes {
         $Property = $_
         
         # Mapping of flattened design properties to their nested properties in the report
-        $PropertyMapping = @{
-          # Example of property mapping for specific resource types to nested properties
-          # 'ResourceType'         = @{
-          #   propertyName        = { param($Resource) $Resource.properties.nestedObject.propertyName }
-          # }
-          # Example of using a Cmdlet to retrieve properties not returned in AzResource
-          # 'ResourceType' = @{
-          #   propertyName         = { param($Resource)
-          #     $resourceObject = Get-AzCmdlet -ResourceId $Resource.Id
-          #     $resourceObject.nestedObject.propertyName # AzResource did not return property
-          #   }
-          # }
-        }
+        $PropertyMapping = @{}
 
         # Act
         # Skip when the property is disabled for this resource type
@@ -299,5 +325,55 @@ Describe "Resource Type '<_>'" -ForEach $ResourceTypes {
         $ActualValue | Should -BeExactly $Tag.Value
       }
     }
+  }
+}
+
+AfterAll {
+  
+  If ($ENV:TESTSCLEANUPSTACKAFTERTEST) {
+    
+    Write-Information -InformationAction Continue -MessageData "Cleanup Stack after tests is enabled"
+    
+    # Resource Group Stack
+    if ($Name) {
+      $StackGroupName = "ds-$ResourceGroupName-$Name"
+    }
+    else {
+      $StackGroupName = "ds-$ResourceGroupName"
+    }
+    
+    Write-Information -InformationAction Continue -MessageData "Deployment Stack '$StackGroupName' will be deleted"
+
+    $StackGroupParameters = @(
+      'stack', 'group', 'delete',
+      '--name', $StackGroupName,
+      '--resource-group', $ResourceGroupName,
+      '--yes',
+      '--action-on-unmanage', 'deleteAll',
+      '--only-show-errors'
+    )
+    
+    # Delete Stack
+    az @StackGroupParameters
+
+    # Subscription Stack
+    $StackSubName = "ds-sub-$ResourceGroupName"
+
+    Write-Information -InformationAction Continue -MessageData "Deployment Stack '$StackSubName' will be deleted"
+    Write-Information -InformationAction Continue -MessageData "Resource Group '$ResourceGroupName' will be deleted"
+
+    $StackSubParameters = @(
+      'stack', 'sub', 'delete',
+      '--name', $StackSubName,
+      '--yes',
+      '--action-on-unmanage', 'deleteAll',
+      '--only-show-errors'
+    )
+    
+    # Delete Stack
+    az @StackSubParameters
+  }
+  else {
+    Write-Information -InformationAction Continue -MessageData "Cleanup Stack after tests is disabled, the Stack will need to be cleaned up manually."
   }
 }

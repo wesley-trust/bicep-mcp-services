@@ -1,16 +1,16 @@
 {
-  "resourceType": "Microsoft.Resources/resource_type",
+  "resourceType": "Microsoft.Storage/storageAccounts",
   "tags": {
     "environment": "dev",
     "owner": "platform-team",
-    "service": "service"
+    "service": "mcp"
   },
   "health": {
     "provisioningState": "Succeeded"
   },
   "resources": [
     {
-      "name": "rt-service-dev-neu-001",
+      "name": "stmcpdevneu001",
       "location": "northeurope"
     }
   ]

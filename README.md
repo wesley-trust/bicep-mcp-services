@@ -1,41 +1,57 @@
-# bicep-template
+# bicep-mcp-services
 
-Reusable starting point for Wesley Trust Bicep services. The template mirrors the structure of existing service repositories so new projects inherit pipelines, variable layering, and Pester suites out of the box.
+Infrastructure-as-code for the MCP durable function back-end. The repository provisions an Azure Functions Flex Consumption (FC1) plan, configures a PowerShell 7.4 runtime for Durable orchestrations, and wires the deployment/testing pipelines that mirror the container-services estate.
 
-## Getting Started
-- Clone this repository as the base for your new service.
-- Choose a service moniker (lowercase, no spaces) and service slug (lowercase with underscores). Example: `containerservices` and `container_services`.
-- Rename the following to match your service moniker:
-  - `pipeline/service.*.yml`
-  - `platform/service.bicep` and `platform/service.bicepparam`
-  - `tests/*/service/*` directories and design fixtures under `tests/design/service`
-- Search for `service`, `service_module`, and similar placeholders to update names, action group identifiers, and tokens.
+## Scope
+- Deploy the resource group and a Flex Consumption plan that scales to zero by default.
+- Provision the function app, storage account (managed identity only), Application Insights, and Log Analytics workspace.
+- Project the function app into the delegated subnet published by `bicep-network-services` using the Flex Consumption `virtualNetworkSubnetId` configuration.
+- Provide unit/integration/smoke/regression Pester suites that validate Bicep what-if output and deployed resources.
+- Expose Azure DevOps deploy, test, and publish pipelines through the shared dispatcher (`pipeline-dispatcher` -> `pipeline-common`).
 
 ## Repository Layout
-- `pipeline/` – Azure DevOps pipelines that call the shared dispatcher (`pipeline-dispatcher` -> `pipeline-common`). The deploy pipeline handles production toggles, disaster recovery, environment/region skips, and action-group switches. The tests pipeline runs unit, integration, smoke, and regression suites during CI and on a nightly schedule. The release pipeline publishes semantic versions on `main`.
-- `platform/` – Bicep artefacts. `resourcegroup.*` deploys the prerequisite resource group. `service.*` demonstrates a network-focused module (virtual network, route table, network security group) wired to the pipelines with tokenised defaults.
-- `vars/` – Layered YAML variables consumed by `pipeline-common`. Includes shared defaults, regional metadata, and per-environment overrides.
-- `scripts/` – PowerShell helpers reused across service repos (Pester runner, review helper, semantic-release script, example pre/post hooks).
-- `tests/` – Pester suites plus design fixtures. The design JSON files model expected resources, tags, and health checks so tests can assert Azure deployments without hard-coded values. Update the `service` folders with resources relevant to your service.
-- `release/` – Placeholder directory used when the release pipeline writes generated notes.
+- `pipeline/` – Azure DevOps pipeline definitions. `mcpservices.deploy.pipeline.yml` drives end-to-end deployments, `mcpservices.test.pipeline.yml` runs the CI/Nightly test matrix, and `mcpservices.publish.pipeline.yml` handles semantic releases.
+- `platform/` – Bicep modules. `resourcegroup.*` deploys the container resource group. `mcpservices.*` builds the Flex Consumption plan, function app, monitoring stack, RBAC, and exposes resource IDs required by the pipelines.
+- `vars/` – Layered YAML variables (`common`, `regions/*`). These feed token replacement for Bicep parameters, pipelines, and design fixtures.
+- `scripts/` – Shared PowerShell helpers (`pester_run.ps1`, `pester_review.ps1`, `release_semver.ps1`).
+- `tests/` – Pester suites split into `unit`, `integration`, `smoke`, and `regression` for both the resource group and the MCP service. Design fixtures in `tests/design/**` capture expected names, tags, scale settings, and health signals per environment/region.
 
-## Token Replacement
-Pipelines enable token replacement for `.bicepparam` and design JSON files. Use `#{{ variableName }}` to reference values from the variables layer under `vars/`. Ensure matching entries exist whenever you add new tokens.
+## Pipelines
+1. `mcpservices.deploy.pipeline.yml`
+   - Parameters toggle production enablement, DR invocation, environment/region skips, and action-group switches.
+   - Action groups: `bicep_actions` (resource group + MCP module) and the resource/service Pester suites.
+2. `mcpservices.test.pipeline.yml`
+   - Triggers on feature/release branches and a nightly schedule. Runs CI-focused unit + integration suites with dynamic deployment versions, plus scheduled regression/smoke runs.
+3. `mcpservices.publish.pipeline.yml`
+   - Kicks on `main` to tag and publish releases via `scripts/release_semver.ps1`.
 
-## Validation Checklist
+All pipelines extend `mcpservices.settings.yml`, which in turn extends the dispatcher contract. Adjust pool metadata or variable include flags there when onboarding new environments.
+
+## Flex Consumption Implementation Notes
+- Hosting plan `FC1` with `reserved: true` satisfies Linux plan requirements. `functionAppConfig.scaleAndConcurrency` exposes `maximumInstanceCount` and `instanceMemoryMB` via variables.
+- Runtime is locked to PowerShell 7.4; deployment packages are pulled from a storage container using the system-assigned managed identity (`blobContainer` model). Extension bundle `[4.0.0, 5.0.0)` is enabled for Durable support.
+- The storage account disables shared keys and restricts access to managed identities. RBAC assignments grant Blob/Queue/Table roles to the function app.
+- VNet integration sets `siteConfig.virtualNetworkSubnetId` so the function app attaches to the delegated subnet published by `bicep-network-services`.
+
+## Testing Strategy
+- **Unit** – What-if inspection ensuring resources, SKU, runtime, and scale settings match `tests/design/.../baseline.design.json` expectations.
+- **Integration** – Deploys via deployment stacks, then inspects live Azure resources for runtime, scale, identity, and monitoring configuration.
+- **Regression** – Guards against unexpected what-if deltas (ensures only creates and the expected inventory).
+- **Smoke** – Confirms deployed resources report `provisioningState = Succeeded`.
+
+Run locally with:
+```pwsh
+pwsh -File scripts/pester_run.ps1 -PathRoot tests -Type unit -TestData @{ Name = 'mcp_services' } -ResultsFile ./TestResults/unit.xml
+```
+(Authenticate with Azure CLI first.)
+
+## Naming & Variables
+- `vars/common.yml` drives name composition and functional defaults (instance count, memory, runtime, identity toggles). Override per environment/region under `vars/environments/*` or `vars/regions/*` as the footprint grows.
+- Tokens such as `#{{ mcpFunctionAppName }}` are replaced during pipeline execution for `.bicepparam` files, design fixtures, and scripts.
+
+## Operational Checklist
 - `az bicep build platform/resourcegroup.bicep`
-- `az bicep build platform/<service>.bicep`
-- `pwsh -File scripts/pester_run.ps1 -PathRoot tests -Type smoke -TestData @{ Name = 'service' } -ResultsFile ./TestResults/local.smoke.xml` (authenticate with Azure beforehand)
-- Manually run the deploy pipeline in Azure DevOps for the `dev` environment and confirm the resource group and service deployments succeed.
-- Verify the nightly tests pipeline produces NUnit XML artefacts in `TestResults/`.
-
-## Customisation Tips
-- Extend `pipeline/service.deploy.pipeline.yml` to add new Bicep modules, adjust dependencies, or wire extra scripts. Follow the schema expected by `pipeline-common` (`type`, `kind`, `scope`, etc.).
-- Toggle variable include layers via the `variables` block in `pipeline/service.settings.yml`. Override environment metadata via the optional `environments` array.
-- Expand design fixtures under `tests/design` to cover additional resources and health indicators. Smoke suites assert the `health` object; regression and integration suites inspect full resource properties.
-- Update `vars/common.yml` and environment/region files to point at the right service connections, naming conventions, address spaces, and peerings for your service.
-
-## References
-- `AGENTS.md` – condensed agent handbook tailored to this template.
-- `../pipeline-common/docs/CONFIGURE.md` – pipeline-common configuration contract.
-- `../pipeline-dispatcher/AGENTS.md` – dispatcher configuration flow.
+- `az bicep build platform/mcpservices.bicep`
+- Execute the deploy pipeline for the `dev` environment and verify the function app integrates with the delegated subnet.
+- Review test pipeline outputs in `TestResults/` to confirm NUnit artefacts are emitted for every suite.
+- Document behavioural changes (new parameters, action groups, dependency updates) in this README.

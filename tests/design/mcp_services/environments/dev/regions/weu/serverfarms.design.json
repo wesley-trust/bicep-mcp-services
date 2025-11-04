@@ -1,5 +1,5 @@
 {
-  "resourceType": "Microsoft.Resources/resourceGroups",
+  "resourceType": "Microsoft.Web/serverfarms",
   "tags": {
     "environment": "dev",
     "owner": "platform-team",
@@ -10,7 +10,7 @@
   },
   "resources": [
     {
-      "name": "rg-mcp-dev-weu-#{{ deploymentVersion }}",
+      "name": "plan-mcp-dev-weu-001",
       "location": "westeurope"
     }
   ]

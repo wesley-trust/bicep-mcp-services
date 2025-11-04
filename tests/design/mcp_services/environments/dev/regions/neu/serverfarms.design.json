@@ -1,17 +1,17 @@
 {
-  "resourceType": "Microsoft.Resources/resource_type",
+  "resourceType": "Microsoft.Web/serverfarms",
   "tags": {
     "environment": "dev",
     "owner": "platform-team",
-    "service": "service"
+    "service": "mcp"
   },
   "health": {
     "provisioningState": "Succeeded"
   },
   "resources": [
     {
-      "name": "rt-service-dev-weu-001",
-      "location": "westeurope"
+      "name": "plan-mcp-dev-neu-001",
+      "location": "northeurope"
     }
   ]
 }

@@ -37,8 +37,8 @@ parameters:
     displayName: "Bicep Tests: Skip Resource Group"
     type: boolean
     default: false
-  - name: doNotRunBicepTestsService
-    displayName: "Bicep Tests: Skip Service"
+  - name: doNotRunBicepTestsMcpServices
+    displayName: "Bicep Tests: Skip MCP Services"
     type: boolean
     default: false
   - name: doNotRunUnit
@@ -83,7 +83,7 @@ parameters:
     default: false
 
 extends:
-  template: service.settings.yml
+  template: mcpservices.settings.yml
   parameters:
     enableProduction: ${{ parameters.enableProduction }}
     runReviewStage: false
@@ -107,9 +107,6 @@ extends:
         variableOverridesEnabled: true
         variableOverrides:
           dynamicDeploymentVersionEnabled: true
-          # Example of how to set environment variables to exclude resource types or properties from CI tests
-          # excludeTypeResourceType: true
-          # excludePropertyNameOfProperty: true
         tokenReplaceEnabled: true
         tokenTargetPatterns:
           - platform/resourcegroup.bicepparam
@@ -145,8 +142,8 @@ extends:
             enabled: ${{ not(parameters.doNotRunSmoke) }}
             scriptPath: scripts/pester_run.ps1
             arguments: "-PathRoot tests -Type smoke -TestData @{Name='resource_group'} -ResultsFile TestResults/bicep_tests_resource_group_smoke_tests.xml"
-      - name: bicep_tests_service_ci
-        enabled: ${{ and( or(not(parameters.doNotRunUnit), not(parameters.doNotRunIntegration)), not(parameters.doNotRunBicepTestsService) ) }}
+      - name: bicep_tests_mcp_services_ci
+        enabled: ${{ and( or(not(parameters.doNotRunUnit), not(parameters.doNotRunIntegration)), not(parameters.doNotRunBicepTestsMcpServices) ) }}
         type: powershell
         scriptTask: azureCli
         kind: pester
@@ -154,41 +151,38 @@ extends:
         variableOverridesEnabled: true
         variableOverrides:
           dynamicDeploymentVersionEnabled: true
-          # Example of how to set environment variables to exclude resource types or properties from CI tests
-          # excludeTypeResourceType: true
-          # excludePropertyNameOfProperty: true
         tokenReplaceEnabled: true
         tokenTargetPatterns:
-          - platform/*.bicepparam
-          - tests/design/service/**/*.design.json
+          - platform/mcpservices.bicepparam
+          - tests/design/mcp_services/**/*.design.json
         environments:
           - dev
         actions:
           - name: unit_tests
             enabled: ${{ not(parameters.doNotRunUnit) }}
             scriptPath: scripts/pester_run.ps1
-            arguments: "-PathRoot tests -Type unit -TestData @{Name='service'} -ResultsFile TestResults/bicep_tests_service_ci_unit_tests.xml"
+            arguments: "-PathRoot tests -Type unit -TestData @{Name='mcp_services'} -ResultsFile TestResults/bicep_tests_mcp_services_ci_unit_tests.xml"
             condition: or(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.Reason'], 'BatchedCI'))
           - name: integration_tests
             enabled: ${{ not(parameters.doNotRunIntegration) }}
             scriptPath: scripts/pester_run.ps1
-            arguments: "-PathRoot tests -Type integration -TestData @{Name='service'} -ResultsFile TestResults/bicep_tests_service_ci_integration_tests.xml"
+            arguments: "-PathRoot tests -Type integration -TestData @{Name='mcp_services'} -ResultsFile TestResults/bicep_tests_mcp_services_ci_integration_tests.xml"
             condition: eq(variables['Build.Reason'], 'PullRequest')
-      - name: bicep_tests_service
-        enabled: ${{ and( or(not(parameters.doNotRunRegression), not(parameters.doNotRunSmoke)), not(parameters.doNotRunBicepTestsService) ) }}
+      - name: bicep_tests_mcp_services
+        enabled: ${{ and( or(not(parameters.doNotRunRegression), not(parameters.doNotRunSmoke)), not(parameters.doNotRunBicepTestsMcpServices) ) }}
         type: powershell
         scriptTask: azureCli
         kind: pester
         condition: eq(variables['Build.Reason'], 'Schedule')
         tokenReplaceEnabled: true
         tokenTargetPatterns:
-          - tests/design/service/**/*.design.json
+          - tests/design/mcp_services/**/*.design.json
         actions:
           - name: regression_tests
             enabled: ${{ not(parameters.doNotRunRegression) }}
             scriptPath: scripts/pester_run.ps1
-            arguments: "-PathRoot tests -Type regression -TestData @{Name='service'} -ResultsFile TestResults/bicep_tests_service_regression_tests.xml"
+            arguments: "-PathRoot tests -Type regression -TestData @{Name='mcp_services'} -ResultsFile TestResults/bicep_tests_mcp_services_regression_tests.xml"
           - name: smoke_tests
             enabled: ${{ not(parameters.doNotRunSmoke) }}
             scriptPath: scripts/pester_run.ps1
-            arguments: "-PathRoot tests -Type smoke -TestData @{Name='service'} -ResultsFile TestResults/bicep_tests_service_smoke_tests.xml"
+            arguments: "-PathRoot tests -Type smoke -TestData @{Name='mcp_services'} -ResultsFile TestResults/bicep_tests_mcp_services_smoke_tests.xml"

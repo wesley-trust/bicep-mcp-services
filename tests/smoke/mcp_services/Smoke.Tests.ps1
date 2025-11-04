@@ -1,6 +1,6 @@
 [CmdletBinding()]
 Param(
-  [string]$DesignRoot = "./tests/design/service",
+  [string]$DesignRoot = "./tests/design/mcp_services",
   [string]$Location = $ENV:REGION,
   [string]$RegionCode = $ENV:REGIONCODE,
   [string]$Environment = $ENV:ENVIRONMENT,
@@ -52,10 +52,7 @@ BeforeDiscovery {
   }
 
   # Resource Types to exclude from health checks
-  $ResourceTypeExclusion = @(
-    # Example of resource type
-    # 'ResourceType'
-  )
+  $ResourceTypeExclusion = @()
 
   # Get unique Resource Types, excluding those in the exclusion list
   $script:ResourceTypes = $Design.resourceType | 
