@@ -41,7 +41,6 @@ variables:
   deployHostingPlan: true # Setting to false will prevent creation of the Hosting Plan, any resources deployed will be detached or deleted as per the allowDeleteOnUnmanage pipeline parameter
   mcpPlanInstanceVersion: 001
   mcpPlanName: plan-$(service)-$(environment)-$(regionCode)-$(mcpPlanInstanceVersion)
-  mcpPlanZoneRedundant: "false"
 
   ## Function App configuration
   deployFunctionApp: true # Setting to false will prevent creation of the Function App, any resources deployed will be detached or deleted as per the allowDeleteOnUnmanage pipeline parameter

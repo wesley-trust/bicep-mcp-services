@@ -23,7 +23,6 @@ param deploymentContainerName = '#{{ mcpDeploymentContainerName }}'
 // Hosting Plan
 param deployHostingPlanString = '#{{ deployHostingPlan }}'
 param hostingPlanName = '#{{ mcpPlanName }}'
-param zoneRedundantString = '#{{ mcpPlanZoneRedundant }}'
 
 // Function App
 param deployFunctionAppString = '#{{ deployFunctionApp }}'

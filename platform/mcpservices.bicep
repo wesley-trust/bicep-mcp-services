@@ -40,7 +40,6 @@ param storageAccountName string
 param deploymentContainerName string
 
 module storage 'br/public:avm/res/storage/storage-account:0.28.0' = if (deployService && deployStorageAccount) {
-  name: 'storage'
   params: {
     name: storageAccountName
     location: location
@@ -75,19 +74,13 @@ var deployHostingPlan = bool(deployHostingPlanString)
 @description('Name of the Azure Functions Flex Consumption plan to create.')
 param hostingPlanName string
 
-@description('Flag to enable zone redundancy on the Flex Consumption plan. Accepted values: "true", "false".')
-param zoneRedundantString string = 'false'
-var zoneRedundant = bool(zoneRedundantString)
-
 module hostingPlan 'br/public:avm/res/web/serverfarm:0.5.0' = if (deployService && deployHostingPlan) {
-  name: 'hostingplan'
   params: {
     name: hostingPlanName
     location: location
     tags: normalisedTags
     skuName: 'FC1'
     kind: 'functionapp'
-    zoneRedundant: zoneRedundant
   }
 }
 
@@ -124,7 +117,6 @@ var additionalAppSettingsArray = [
 ]
 
 module functionApp 'br/public:avm/res/web/site:0.19.0' = if (deployService && deployFunctionApp) {
-  name: 'functionapp'
   params: {
     name: mcpFunctionAppName
     location: location
