@@ -12,41 +12,44 @@ variables:
   deploymentVersion: 001
   resourceGroup: rg-$(service)-$(environment)-$(regionCode)-$(deploymentVersion)
 
-  # Service configuration
-  deployService: true # Setting to false skips the Function App deployment entirely, any resources deployed will be detached or deleted as per the allowDeleteOnUnmanage pipeline parameter
-
-  ## Function App configuration
-  deployFunctionApp: true # Setting to false will prevent creation of the Function App and dependencies, any resources deployed will be detached or deleted as per the allowDeleteOnUnmanage pipeline parameter
-  mcpInstanceVersion: 001
-  mcpPlanInstanceVersion: 001
-  mcpStorageAccountInstanceVersion: 001
-
-  mcpName: func-$(service)-$(environment)-$(regionCode)-$(mcpInstanceVersion)
-  mcpPlanName: plan-$(service)-$(environment)-$(regionCode)-$(mcpPlanInstanceVersion)
-  mcpStorageAccountName: st$(service)$(environment)$(regionCode)$(mcpStorageAccountInstanceVersion)
-  mcpDeploymentContainerName: apppkg-$(service)-$(environment)-$(regionCode)
-
-  mcpMaximumInstanceCount: 100
-  mcpInstanceMemoryMB: 2048
-  mcpRuntime: powerShell
-  mcpRuntimeVersion: "7.4"
-  mcpAlwaysReadyDurableCount: 0
-  mcpPlanZoneRedundant: "false"
-  mcpUserPrincipalId: ""
-  mcpAllowUserPrincipal: "false"
-
-  ## Virtual Network configuration
+  # Virtual Network configuration
   vNetInstanceVersion: 001
   networkDeploymentVersion: 001
   networkService: "network"
   networkResourceGroup: rg-$(networkService)-$(environment)-$(regionCode)-$(networkDeploymentVersion)
 
-  ### Virtual Network: vnet-001
+  ## Virtual Network: vnet-001
   vnet-001-name: vnet-$(networkService)-$(environment)-$(regionCode)-$(vNetInstanceVersion)
 
-  ### Subnet configuration
+  ## Subnet configuration
   subnetInstanceVersion: 001
 
-  ### Subnet: snet-002
+  ## Subnet: snet-002
   snet-002-resource: "mcp"
   snet-002-name: snet-$(networkService)-$(environment)-$(regionCode)-vnet-$(vNetInstanceVersion)-$(snet-002-resource)-$(subnetInstanceVersion)
+
+  # Service configuration
+  deployService: true # Setting to false skips the service deployment entirely, any resources deployed will be detached or deleted as per the allowDeleteOnUnmanage pipeline parameter
+
+  ## Storage Account configuration
+  deployStorageAccount: true # Setting to false will prevent creation of the Storage Account, any resources deployed will be detached or deleted as per the allowDeleteOnUnmanage pipeline parameter
+  mcpStorageAccountInstanceVersion: 001
+  mcpStorageAccountName: st$(service)$(environment)$(regionCode)$(mcpStorageAccountInstanceVersion)
+  mcpDeploymentContainerName: apppkg-$(service)-$(environment)-$(regionCode)
+
+  ## Hosting Plan configuration
+  deployHostingPlan: true # Setting to false will prevent creation of the Hosting Plan, any resources deployed will be detached or deleted as per the allowDeleteOnUnmanage pipeline parameter
+  mcpPlanInstanceVersion: 001
+  mcpPlanName: plan-$(service)-$(environment)-$(regionCode)-$(mcpPlanInstanceVersion)
+  mcpPlanZoneRedundant: "false"
+
+  ## Function App configuration
+  deployFunctionApp: true # Setting to false will prevent creation of the Function App, any resources deployed will be detached or deleted as per the allowDeleteOnUnmanage pipeline parameter
+  mcpInstanceVersion: 001
+  mcpFunctionAppName: func-$(service)-$(environment)-$(regionCode)-$(mcpInstanceVersion)
+  mcpMaximumInstanceCount: 100
+  mcpInstanceMemoryMB: 2048
+  mcpRuntime: powerShell
+  mcpRuntimeVersion: "7.4"
+  mcpUserPrincipalId: ""
+  mcpAllowUserPrincipal: "false"

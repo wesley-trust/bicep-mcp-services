@@ -9,29 +9,30 @@ param tags = {
 
 // Service
 param deployServiceString = '#{{ deployService }}'
-param deployFunctionAppString = '#{{ deployFunctionApp }}'
 
 // Virtual Network
 param virtualNetworkName = '#{{ vnet-001-name }}'
-param virtualNetworkResourceGroupName = '#{{ networkResourceGroup }}'
 param mcpSubnetName = '#{{ snet-002-name }}'
+param virtualNetworkResourceGroupName = '#{{ networkResourceGroup }}'
 
-// Resource names
-param hostingPlanName = '#{{ mcpPlanName }}'
-param mcpFunctionAppName = '#{{ mcpFunctionAppName }}'
+// Storage Account
+param deployStorageAccountString = '#{{ deployStorageAccount }}'
 param storageAccountName = '#{{ mcpStorageAccountName }}'
-param logAnalyticsWorkspaceName = '#{{ mcpLogAnalyticsName }}'
-param applicationInsightsName = '#{{ mcpInsightsName }}'
 param deploymentContainerName = '#{{ mcpDeploymentContainerName }}'
 
-// Function App configuration
+// Hosting Plan
+param deployHostingPlanString = '#{{ deployHostingPlan }}'
+param hostingPlanName = '#{{ mcpPlanName }}'
+param zoneRedundantString = '#{{ mcpPlanZoneRedundant }}'
+
+// Function App
+param deployFunctionAppString = '#{{ deployFunctionApp }}'
+param mcpFunctionAppName = '#{{ mcpFunctionAppName }}'
 param maximumInstanceCountString = '#{{ mcpMaximumInstanceCount }}'
 param instanceMemoryMBString = '#{{ mcpInstanceMemoryMB }}'
 param mcpRuntime = '#{{ mcpRuntime }}'
 param mcpRuntimeVersion = '#{{ mcpRuntimeVersion }}'
-param alwaysReadyDurableCountString = '#{{ mcpAlwaysReadyDurableCount }}'
-param zoneRedundantString = '#{{ mcpPlanZoneRedundant }}'
 
-// Identity
+// Role Assignments
 param userPrincipalId = '#{{ mcpUserPrincipalId }}'
 param allowUserPrincipalAccessString = '#{{ mcpAllowUserPrincipal }}'
